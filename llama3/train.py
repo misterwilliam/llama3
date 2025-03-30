@@ -65,7 +65,7 @@ def update_step(params, batch, config):
     )
     return params, loss
 
-def train(data, config, checkpoint, num_epochs=30, steps_per_epoch=1):
+def train(data, config, checkpoint, num_epochs=30, steps_per_epoch=100):
     key = random.PRNGKey(0)
     params_state = checkpoint.params
 
