@@ -3,21 +3,17 @@ import jax
 import jax.numpy as jnp
 from jax import random
 
+import tiktoken
+
 from model import model_forward
+import serialize
 
 import argparse
 import pickle
-import tiktoken
+
 import time
 
 enc = tiktoken.get_encoding("gpt2")
-
-def load_params(filepath):
-  with open(filepath, 'rb') as f:
-      numpy_params = pickle.load(f)
-  # convert back to JAX arrays
-  params = jax.tree.map(lambda x: jnp.array(x), numpy_params)
-  return params
 
 def generate(params, prompt_tokens, max_new_tokens, config):
   start_ts = time.time()
@@ -58,9 +54,9 @@ def main():
   config = ModelConfig()
 
   print("Loading model...")
-  params = load_params(args.model_weights)
+  checkpoint = serialize.load_params(args.model_weights)
   print("Generating output...")
-  output = generate(params, jnp.array(enc.encode(args.prompt)), 20, config)
+  output = generate(checkpoint.params, jnp.array(enc.encode(args.prompt)), 20, config)
 
   print(enc.decode(output))
 

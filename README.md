@@ -18,10 +18,13 @@ $ pip install tiktoken
 
 ```sh
 $ python3 llama3/train.py
+
+# Resume training from checkpoint
+$ python3 llama3/train.py --checkpoint=checkpoints/epoch_4.pkl
 ```
 
 ## Predict
 
 ```sh
-$ python3 llama3/generate.py model_final.pkl "Hello"
+$ python3 llama3/generate.py checkpoints/epoch_4.pkl "Hello"
 ```
