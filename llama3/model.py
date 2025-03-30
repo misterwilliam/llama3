@@ -40,12 +40,13 @@ def init_attention_weights(key, dim, n_heads, n_kv_heads):
         'wv': init_weight(keys[2], (dim, n_kv_heads * head_dim)),
         'wo': init_weight(keys[3], (n_heads * head_dim, dim))
     }
+
 def init_ffn_weights(key, dim):
     keys = jax.random.split(key, 3)
     return {
         'w1': init_weight(keys[0], (dim, 4 * dim)),
-        'w2': init_weight(keys[1], (4 * dim, dim)),
-        'w3': init_weight(keys[2], (dim, 4 * dim))}
+        'w2': init_weight(keys[1], (dim, 4 * dim)),
+        'w3': init_weight(keys[2], (4 * dim, dim))}
 
 def init_transformer_block(key, dim, n_heads, n_kv_heads):
     keys = jax.random.split(key, 4)
@@ -89,7 +90,18 @@ def attention(params, x, mask, freqs_cis, n_heads, n_kv_heads, cache=None, posit
     return jnp.dot(output, params['wo']), new_cache
 
 def feed_forward(params, x):
-    return jnp.dot(jax.nn.silu(jnp.dot(x, params['w3'])) * jnp.dot(x, params['w1']), params['w2'])
+  # x.shape = (batch, context length, dim)
+  # w1.shape = (dim, 4 * dim)
+  # w2.shape = (dim, 4 * dim)
+  # w3.shape = (4 * dim, dim)
+  #
+  # x2 = dot(x, w1) - Project x to shape (4 * dim,).
+  # gate = swilu(dot(x, w2)) - Create gate also of shape (4 * dim,).
+  # output = dot(x2 * gate, w3) - Gate x2 and then project back down to shape (dim,)
+  return jnp.dot(
+      jnp.dot(x, params['w1']) *
+      jax.nn.silu(jnp.dot(x, params['w2'])),
+    params['w3'])
 
 def transformer_block(params, x, mask, freqs_cis, n_heads, n_kv_heads, cache=None, position=0, training=False, dropout_rate=0.0, key=None):
     attn_output, new_cache = attention(params['attention'], rms_norm(x, params['attention_norm']), mask, freqs_cis, n_heads, n_kv_heads, cache, position)

@@ -28,3 +28,9 @@ $ python3 llama3/train.py --checkpoint=checkpoints/epoch_4.pkl
 ```sh
 $ python3 llama3/generate.py checkpoints/epoch_4.pkl "Hello"
 ```
+
+## Test
+
+```sh
+$ python3 -m unittest
+```

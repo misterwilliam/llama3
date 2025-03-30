@@ -70,32 +70,29 @@ def train(data, config, checkpoint, num_epochs=30, steps_per_epoch=1):
     params_state = checkpoint.params
 
     epoch_losses = []
-    for epoch in range(checkpoint.epoch, checkpoint.epoch+num_epochs):
-        print(f"\nEpoch {epoch + 1}/{num_epochs}")
+    curr_epoch = checkpoint.epoch + 1
+    for epoch in range(curr_epoch, curr_epoch + num_epochs):
+        print(f"\nEpoch {epoch}/{num_epochs}")
         print("-" * 50)
         epoch_start_ts = time.time()
 
         epoch_loss = 0.0
         for step in range(steps_per_epoch):
-            key, batch_key = random.split(key)
+          key, batch_key = random.split(key)
+          # Get batch
+          batch = get_batch(batch_key, data, config.batch_size, config.max_seq_len)
+          # Update model
+          params_state, loss = update_step(params_state, batch, config)
+          epoch_loss += loss
 
-            # Get batch
-            batch = get_batch(batch_key, data, config.batch_size, config.max_seq_len)
-
-            # Update model
-            params_state, loss = update_step(params_state, batch, config)
-            epoch_loss += loss
-
-            if True:#if step % 10 == 0:
-                print(f"epoch {epoch + 1}, step {step}/{steps_per_epoch}: loss = {loss:.4f}")
-                print("Step duration: %.3f" % (time.time() - epoch_start_ts))
+          print(f"epoch {epoch}, step {step}/{steps_per_epoch}: loss = {loss:.4f}")
 
         avg_epoch_loss = epoch_loss / steps_per_epoch
         epoch_losses.append(avg_epoch_loss)
-        print(f"\nepoch {epoch + 1} | average loss: {avg_epoch_loss:.4f}")
+        print(f"\nepoch {epoch} | average loss: {avg_epoch_loss:.4f}")
         print("Avg step duration: %.3f" % ((time.time() - epoch_start_ts) / steps_per_epoch))
 
-        serialize.save_params(params_state, epoch, f'checkpoints/epoch_{epoch+1}.pkl')
+        serialize.save_params(params_state, epoch, f'checkpoints/epoch_{epoch}.pkl')
 
     print("Loss by epoch:")
     for epoch, loss in enumerate(epoch_losses, 1):
