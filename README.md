@@ -17,11 +17,11 @@ $ pip install tiktoken
 ## Train
 
 ```sh
-$ python3 src/train.py
+$ python3 llama3/train.py
 ```
 
 ## Predict
 
 ```sh
-$ python3 src/generate.py model_final.pkl "Hello"
+$ python3 llama3/generate.py model_final.pkl "Hello"
 ```
