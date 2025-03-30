@@ -23,5 +23,5 @@ $ python3 src/train.py
 ## Predict
 
 ```sh
-$ python3 src/generate.py
+$ python3 src/generate.py model_final.pkl "Hello"
 ```

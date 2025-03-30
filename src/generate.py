@@ -1,8 +1,12 @@
 import jax
+
 import jax.numpy as jnp
-from jax import random, vmap
+from jax import random
+
+
 from model import model_forward
 
+import argparse
 import pickle
 import tiktoken
 
@@ -36,9 +40,23 @@ class ModelConfig:
     learning_rate = 3e-4
     dropout_rate = 0.0
 
-config = ModelConfig()
 
-params = load_params("model_final.pkl")
-output = generate(params, jnp.array(enc.encode("How are you?")), 20, config)
+def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument("model_weights", type=str, help="Path to model weights.",
+                      default="model_final.pkl")
+  parser.add_argument("prompt", type=str, help="Prompt to feed model.")
+  args = parser.parse_args()
 
-print(enc.decode(output))
+  config = ModelConfig()
+
+  print("Loading model...")
+  params = load_params(args.model_weights)
+  print("Generating output...")
+  output = generate(params, jnp.array(enc.encode(args.prompt)), 20, config)
+
+  print(enc.decode(output))
+
+
+if __name__ == "__main__":
+  main()
