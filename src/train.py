@@ -47,14 +47,6 @@ def save_params(params, filepath):
     with open(filepath, 'wb') as f:
         pickle.dump(numpy_params, f)
 
-def load_params(filepath):
-    with open(filepath, 'rb') as f:
-        numpy_params = pickle.load(f)
-    # convert back to JAX arrays
-    params = jax.tree.map(lambda x: jnp.array(x), numpy_params)
-    return params
-
-
 def get_batch(key, data, batch_size, seq_len):
     # Generate random starting indices
     ix = random.randint(key, (batch_size,), 0, len(data) - seq_len)
@@ -64,16 +56,6 @@ def get_batch(key, data, batch_size, seq_len):
     y = vmap(lambda i: lax.dynamic_slice(data, (i + 1,), (seq_len,)))(ix)
 
     return x, y
-
-def generate(params, prompt_tokens, max_new_tokens, config):
-    x = jnp.array(prompt_tokens)
-    for _ in range(max_new_tokens):
-        x_crop = x[-config.max_seq_len:]
-        logits, _ = model_forward(params, x_crop[None, :], config)
-        logits = logits[0, -1, :]  # take the last logit
-        next_token = random.categorical(random.PRNGKey(0), logits, shape=(1,))[0]
-        x = jnp.concatenate([x, jnp.array([next_token])])
-    return x.tolist()
 
 def compute_loss(params, batch):
     inputs, targets = batch
@@ -125,7 +107,6 @@ def train(num_epochs=30, steps_per_epoch=100):
             if step % 10 == 0:
                 print(f"epoch {epoch + 1}, step {step}/{steps_per_epoch}: loss = {loss:.4f}")
 
-
         avg_epoch_loss = epoch_loss / steps_per_epoch
         epoch_losses.append(avg_epoch_loss)
 
@@ -134,7 +115,6 @@ def train(num_epochs=30, steps_per_epoch=100):
 
         if (epoch + 1) % 5 == 0:
             save_params(params_state, f'model_checkpoint_epoch_{epoch+1}.pkl')
-
 
     print("Loss by epoch:")
     for epoch, loss in enumerate(epoch_losses, 1):
