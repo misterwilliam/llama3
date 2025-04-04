@@ -32,5 +32,19 @@ class TestFeedForward(unittest.TestCase):
     output = llama3.model.feed_forward(params, x)
     self.assertEqual(output.shape, (batch, context_len, dim))
 
+  def test_get_mask(self):
+     context_len = 4
+     mask = llama3.model.get_mask(context_len, jnp.float32, mask_val=-1)
+     self.assertEqual(mask.shape, (1, 1, context_len, context_len))
+     self.assertTrue(
+       jnp.array_equal(mask[0, 0],
+                       jnp.array([
+                          [0, -1, -1, -1],
+                          [0,  0, -1, -1],
+                          [0,  0,  0, -1],
+                          [0,  0,  0,  0],
+                        ])))
+
+
 if __name__ == '__main__':
     unittest.main()
