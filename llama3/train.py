@@ -43,7 +43,7 @@ def get_batch(key, data, batch_size, seq_len):
 
 def compute_loss(params, batch, config):
     inputs, targets = batch
-    logits, _ = model_forward(params, inputs, config)
+    logits, _ = model_forward(params, inputs, config, training=True)
     logits = logits.reshape(-1, config.vocab_size)
     targets = targets.reshape(-1)
     loss = -jnp.mean(

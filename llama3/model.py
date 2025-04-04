@@ -133,7 +133,7 @@ def get_mask(context_len, dtype, mask_val=-1e-9):
   mask = mask.astype(dtype)
   return mask[None, None, :, :]
 
-def model_forward(params, inputs, config, cache=None, position=0):
+def model_forward(params, inputs, config, training=False, cache=None, position=0):
     # B, T = inputs.shape
     h = params['token_embedding'][inputs]
     freqs_cis = precompute_freqs_cis(config.dim // config.n_heads, config.max_seq_len)
