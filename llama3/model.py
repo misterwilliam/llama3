@@ -98,7 +98,7 @@ def feed_forward(params, x):
   # Implementation is agnostic of batch and context length, so pretending x is
   # shape (dim,) the implentation does the following:
   # x2 = dot(x, w1) - Project x to shape (4 * dim,).
-  # gate = swilu(dot(x, w2)) - Create gate also of shape (4 * dim,).
+  # gate = silu(dot(x, w2)) - Create gate also of shape (4 * dim,).
   # output = dot(x2 * gate, w3) - Gate x2 and then project back down to shape (dim,)
   return jnp.dot(
       jnp.dot(x, params['w1']) *
