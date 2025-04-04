@@ -46,7 +46,7 @@ class ModelConfig:
 
 def main():
   parser = argparse.ArgumentParser()
-  parser.add_argument("model_weights", type=str, help="Path to model weights.",
+  parser.add_argument("checkpoint", type=str, help="Path to model weights.",
                       default="model_final.pkl")
   parser.add_argument("prompt", type=str, help="Prompt to feed model.")
   args = parser.parse_args()
@@ -54,7 +54,7 @@ def main():
   config = ModelConfig()
 
   print("Loading model...")
-  checkpoint = serialize.load_params(args.model_weights)
+  checkpoint = serialize.load_params(args.checkpoint)
   print("Generating output...")
   output = generate(checkpoint.params, jnp.array(enc.encode(args.prompt)), 20, config)
 

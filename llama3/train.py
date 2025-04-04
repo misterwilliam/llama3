@@ -41,9 +41,9 @@ def get_batch(key, data, batch_size, seq_len):
 
     return x, y
 
-def compute_loss(params, batch, config):
+def compute_loss(params, batch, config, dropout_key):
     inputs, targets = batch
-    logits, _ = model_forward(params, inputs, config, training=True)
+    logits, _ = model_forward(params, inputs, config, key=dropout_key, training=True)
     logits = logits.reshape(-1, config.vocab_size)
     targets = targets.reshape(-1)
     loss = -jnp.mean(
@@ -56,8 +56,8 @@ def compute_loss(params, batch, config):
     return loss
 
 @partial(jax.jit, static_argnames=("config",))
-def update_step(params, batch, config):
-    loss, grads = jax.value_and_grad(compute_loss)(params, batch, config)
+def update_step(params, batch, config, dropout_key):
+    loss, grads = jax.value_and_grad(compute_loss)(params, batch, config, dropout_key)
     params = jax.tree.map(
         lambda p, g: p - config.learning_rate * g,
         params,
@@ -78,11 +78,11 @@ def train(data, config, checkpoint, num_epochs=30, steps_per_epoch=100):
 
         epoch_loss = 0.0
         for step in range(steps_per_epoch):
-          key, batch_key = random.split(key)
+          key, batch_key, dropout_key = random.split(key, 3)
           # Get batch
           batch = get_batch(batch_key, data, config.batch_size, config.max_seq_len)
           # Update model
-          params_state, loss = update_step(params_state, batch, config)
+          params_state, loss = update_step(params_state, batch, config, dropout_key)
           epoch_loss += loss
 
           print(f"epoch {epoch}, step {step}/{steps_per_epoch}: loss = {loss:.4f}")
@@ -99,7 +99,7 @@ def train(data, config, checkpoint, num_epochs=30, steps_per_epoch=100):
         print(f"Epoch {epoch}: {loss:.4f}")
 
     # Save final model
-    serialize.save_params(params_state, epoch, 'model_final.pkl')
+    serialize.save_params(params_state, epoch, 'checkpoints/model_final.pkl')
     return params_state
 
 
@@ -121,7 +121,12 @@ def get_params(checkpoint: str, config):
 
 def main():
   parser =  argparse.ArgumentParser()
-  parser.add_argument("--checkpoint", type=str, help="Checkpoint to resume from.", default="", required=False)
+  parser.add_argument("--checkpoint", type=str, help="Checkpoint to resume from.",
+                      default="", required=False)
+  parser.add_argument("--epochs", type=int, help="Number of training epochs.",
+                      default=100, required=False)
+  parser.add_argument("--steps-per-epoch", type=int, help="Steps per training epoch.",
+                      default=100, required=False)
   args = parser.parse_args()
 
   print("JAX devices:", jax.devices())
@@ -137,7 +142,8 @@ def main():
   key = random.PRNGKey(0)
   params = get_params(args.checkpoint, config)
   # Train the model
-  trained_params = train(data, config, params)
+  trained_params = train(data, config, params, num_epochs=args.epochs,
+                         steps_per_epoch=args.steps_per_epoch)
 
 if __name__ == "__main__":
   main()

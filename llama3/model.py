@@ -44,9 +44,9 @@ def init_attention_weights(key, dim, n_heads, n_kv_heads):
 def init_ffn_weights(key, dim):
     keys = jax.random.split(key, 3)
     return {
-        'w1': init_weight(keys[0], (dim, 4 * dim)),
-        'w2': init_weight(keys[1], (dim, 4 * dim)),
-        'w3': init_weight(keys[2], (4 * dim, dim))}
+        'up': init_weight(keys[0], (dim, 4 * dim)),
+        'gate': init_weight(keys[1], (dim, 4 * dim)),
+        'down': init_weight(keys[2], (4 * dim, dim))}
 
 def init_transformer_block(key, dim, n_heads, n_kv_heads):
     keys = jax.random.split(key, 4)
@@ -90,24 +90,27 @@ def attention(params, x, mask, freqs_cis, n_heads, n_kv_heads, cache=None, posit
     return jnp.dot(output, params['wo']), new_cache
 
 def feed_forward(params, x):
+  # feed_forward implements SwiGLU activation
   # x.shape = (batch, context length, dim)
-  # w1.shape = (dim, 4 * dim)
-  # w2.shape = (dim, 4 * dim)
-  # w3.shape = (4 * dim, dim)
+  # up.shape = (dim, 4 * dim)
+  # gate.shape = (dim, 4 * dim)
+  # down.shape = (4 * dim, dim)
   #
-  # Implementation is agnostic of batch and context length, so pretending x is
-  # shape (dim,) the implentation does the following:
-  # x2 = dot(x, w1) - Project x to shape (4 * dim,).
-  # gate = silu(dot(x, w2)) - Create gate also of shape (4 * dim,).
-  # output = dot(x2 * gate, w3) - Gate x2 and then project back down to shape (dim,)
+  # The function:
+  # 1. Projects input to a higher dimension with up weights
+  # 2. Creates a gate using SiLU activation with gate weights
+  # 3. Element-wise multiplies these intermediate values
+  # 4. Projects back to original dimension with down weights
   return jnp.dot(
-      jnp.dot(x, params['w1']) *
-      jax.nn.silu(jnp.dot(x, params['w2'])),
-    params['w3'])
+      jnp.dot(x, params["up"]) *
+      jax.nn.silu(jnp.dot(x, params["gate"])),
+    params["down"])
 
 def transformer_block(params, x, mask, freqs_cis, n_heads, n_kv_heads,
                       cache=None, position=0, training=False, dropout_rate=0.0,
                       key=None):
+    if training and key is None and dropout_rate > 0:
+        assert False, "key must be provided when training with drop out"
     attn_output, new_cache = attention(params['attention'],
                                        rms_norm(x, params['attention_norm']),
                                        mask, freqs_cis, n_heads, n_kv_heads,
@@ -133,7 +136,7 @@ def get_mask(context_len, dtype, mask_val=-1e-9):
   mask = mask.astype(dtype)
   return mask[None, None, :, :]
 
-def model_forward(params, inputs, config, training=False, cache=None, position=0):
+def model_forward(params, inputs, config, key=None, training=False, cache=None, position=0):
     # B, T = inputs.shape
     h = params['token_embedding'][inputs]
     freqs_cis = precompute_freqs_cis(config.dim // config.n_heads, config.max_seq_len)
@@ -143,7 +146,8 @@ def model_forward(params, inputs, config, training=False, cache=None, position=0
         layer_cache = cache[i] if cache is not None else None
         h, layer_cache = transformer_block(block, h, mask, freqs_cis, config.n_heads,
                                            config.n_kv_heads, layer_cache, position,
-                                           training=False, dropout_rate=config.dropout_rate)
+                                           training=training, dropout_rate=config.dropout_rate,
+                                           key=key)
         new_caches.append(layer_cache)
     h = rms_norm(h, params['norm_f'])
     logits = jnp.dot(h, params['output'])
