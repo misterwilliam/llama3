@@ -123,7 +123,7 @@ def transformer_block(params, x, mask, freqs_cis, n_heads, n_kv_heads,
     out = h + ffn_output
     return out, new_cache
 
-def get_mask(context_len, dtype, mask_val=1e-9):
+def get_mask(context_len, dtype, mask_val=-1e-9):
   # Return lower triangle of 0s and top triangle filled with mask_val. Shape of
   # return value is (1, 1, context_len, context_len). The intended us case is to
   # add mask to attention scores and then soft max. Therefore to zero out the
