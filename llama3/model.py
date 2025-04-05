@@ -1,7 +1,23 @@
 import jax
 import jax.numpy as jnp
 from jax import random
+import tiktoken
+
 import math
+
+enc = tiktoken.get_encoding("gpt2")
+
+class ModelConfig:
+  vocab_size = enc.n_vocab
+  dim = 256
+  n_layers = 6
+  n_heads = 8
+  n_kv_heads = 4
+  max_seq_len = 512
+  batch_size = 32
+  learning_rate = 3e-4
+  dropout_rate = 0.0
+
 
 def rms_norm(x, weight, eps=1e-5):
     variance = jnp.mean(jnp.square(x), axis=-1, keepdims=True)
@@ -90,7 +106,7 @@ def attention(params, x, mask, freqs_cis, n_heads, n_kv_heads, cache=None, posit
     return jnp.dot(output, params['wo']), new_cache
 
 def feed_forward(params, x):
-  # feed_forward implements SwiGLU activation
+  # feed_forward implements SwiGLU activation. Works batched and non-batched.
   # x.shape = (batch, context length, dim)
   # up.shape = (dim, 4 * dim)
   # gate.shape = (dim, 4 * dim)

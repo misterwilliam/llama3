@@ -5,30 +5,16 @@ from jax import random, vmap
 
 import tiktoken
 
-from model import init_model_params, model_forward
+import model
 import serialize
 
 from functools import partial
 
 import argparse
-import pickle
 import time
 
 
 enc = tiktoken.get_encoding("gpt2")
-
-# Model configuration
-class ModelConfig:
-    vocab_size = enc.n_vocab
-    dim = 256
-    n_layers = 6
-    n_heads = 8
-    n_kv_heads = 4
-    max_seq_len = 512
-    batch_size = 32
-    learning_rate = 3e-4
-    dropout_rate = 0.0
-
 
 
 def get_batch(key, data, batch_size, seq_len):
@@ -43,7 +29,7 @@ def get_batch(key, data, batch_size, seq_len):
 
 def compute_loss(params, batch, config, dropout_key):
     inputs, targets = batch
-    logits, _ = model_forward(params, inputs, config, key=dropout_key, training=True)
+    logits, _ = model.model_forward(params, inputs, config, key=dropout_key, training=True)
     logits = logits.reshape(-1, config.vocab_size)
     targets = targets.reshape(-1)
     loss = -jnp.mean(
@@ -107,7 +93,7 @@ def get_params(checkpoint: str, config):
     if checkpoint == "":
         print("Randomly initializing weights")
         key = random.PRNGKey(0)
-        return serialize.Checkpoint(0, init_model_params(
+        return serialize.Checkpoint(0, model.init_model_params(
           key=key,
           vocab_size=config.vocab_size,
           dim=config.dim,
@@ -136,7 +122,7 @@ def main():
   tokens = enc.encode(text)
   data = jnp.array(tokens)
 
-  config = ModelConfig()
+  config = model.ModelConfig()
 
   # Initialize model
   key = random.PRNGKey(0)
