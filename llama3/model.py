@@ -20,8 +20,13 @@ class ModelConfig:
 
 
 def rms_norm(x, weight, eps=1e-5):
-    variance = jnp.mean(jnp.square(x), axis=-1, keepdims=True)
-    return x * weight * jnp.reciprocal(jnp.sqrt(variance + eps))
+    """Normalize x by its root mean square and weight by weight.
+
+    Input can be a single token's embedding, list of token embeddings, or a
+    batch of multiple token embeddings.
+    """
+    rms = jnp.sqrt(jnp.mean(jnp.square(x), axis=-1, keepdims=True) + eps)
+    return x * weight * jnp.reciprocal(rms)
 
 def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
     freqs = 1.0 / (theta ** (jnp.arange(0, dim // 2, dtype=jnp.float32) / dim))
@@ -127,9 +132,9 @@ def transformer_block(params, x, mask, freqs_cis, n_heads, n_kv_heads,
                       key=None):
     if training and key is None and dropout_rate > 0:
         assert False, "key must be provided when training with drop out"
+    x = rms_norm(x, params['attention_norm'])
     attn_output, new_cache = attention(params['attention'],
-                                       rms_norm(x, params['attention_norm']),
-                                       mask, freqs_cis, n_heads, n_kv_heads,
+                                       x, mask, freqs_cis, n_heads, n_kv_heads,
                                        cache, position)
     if training:
         dropout_key, key = jax.random.split(key)
