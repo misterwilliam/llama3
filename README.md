@@ -21,6 +21,8 @@ $ python3 llama3/train.py
 
 # Resume training from checkpoint
 $ python3 llama3/train.py --checkpoint=checkpoints/epoch_4.pkl
+# Run just 2 iterations of training
+$ python3 llama3/train.py --epochs 1 --steps-per-epoch 1 --checkpoint=checkpoints/epoch_4.pkl
 ```
 
 ## Predict

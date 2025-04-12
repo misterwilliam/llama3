@@ -3,21 +3,32 @@ import jax.numpy as jnp
 from jax import random
 import tiktoken
 
+import dataclasses
 import math
 
 enc = tiktoken.get_encoding("gpt2")
 
+@dataclasses.dataclass(frozen=True)
 class ModelConfig:
-  vocab_size = enc.n_vocab
-  dim = 256
-  n_layers = 6
-  n_heads = 8
-  n_kv_heads = 4
-  max_seq_len = 512
-  batch_size = 32
-  learning_rate = 3e-4
-  dropout_rate = 0.0
+  vocab_size: int | None = None
+  dim: int | None = None
+  num_layers: int | None = None
+  num_heads: int | None = None
+  num_kv_heads: int | None = None
+  context_len: int | None = None
+  batch_size: int | None = None
+  learning_rate: float | None = None
+  dropout_rate: float | None = None
 
+model_config = ModelConfig(vocab_size=enc.n_vocab,
+                           dim=256,
+                           num_layers=6,
+                           num_heads=8,
+                           num_kv_heads=4,
+                           context_len=512,
+                           batch_size=32,
+                           learning_rate=3e-4,
+                           dropout_rate=0.0)
 
 def rms_norm(x: jnp.array, weight: jnp.array, eps=1e-5):
     """Normalize x by its root mean square and weight by weight.
@@ -63,14 +74,14 @@ def init_weight(key, shape, scale=None):
     scale = 1.0 / math.sqrt(shape[0]) if scale is None else scale
     return jax.random.normal(key, shape) * scale
 
-def init_attention_weights(key, dim, n_heads, n_kv_heads):
+def init_attention_weights(key, dim, num_heads, num_kv_heads):
     keys = jax.random.split(key, 4)
-    head_dim = dim // n_heads
+    head_dim = dim // num_heads
     return {
-        'wq': init_weight(keys[0], (dim, n_heads * head_dim)),
-        'wk': init_weight(keys[1], (dim, n_kv_heads * head_dim)),
-        'wv': init_weight(keys[2], (dim, n_kv_heads * head_dim)),
-        'wo': init_weight(keys[3], (n_heads * head_dim, dim))
+        'wq': init_weight(keys[0], (dim, num_heads * head_dim)),
+        'wk': init_weight(keys[1], (dim, num_kv_heads * head_dim)),
+        'wv': init_weight(keys[2], (dim, num_kv_heads * head_dim)),
+        'wo': init_weight(keys[3], (num_heads * head_dim, dim))
     }
 
 def init_ffn_weights(key, dim):
@@ -80,38 +91,42 @@ def init_ffn_weights(key, dim):
         'gate': init_weight(keys[1], (dim, 4 * dim)),
         'down': init_weight(keys[2], (4 * dim, dim))}
 
-def init_transformer_block(key, dim, n_heads, n_kv_heads):
+def init_transformer_block(key, dim, num_heads, num_kv_heads):
     keys = jax.random.split(key, 4)
     return {
-        'attention': init_attention_weights(keys[0], dim, n_heads, n_kv_heads),
+        'attention': init_attention_weights(keys[0], dim, num_heads, num_kv_heads),
         'ffn': init_ffn_weights(keys[1], dim),
         'attention_norm': init_weight(keys[2], (dim,), scale=1.0),
         'ffn_norm': init_weight(keys[3], (dim,), scale=1.0)}
 
-def init_model_params(key, vocab_size, dim, n_layers, n_heads, n_kv_heads):
+def init_model_params(key, vocab_size, dim, num_layers, num_heads, num_kv_heads):
     keys = jax.random.split(key, 4)
     params = {
         'token_embedding': init_weight(keys[0], (vocab_size, dim)),
         'norm_f': init_weight(keys[1], (dim,), scale=1.0),
         'output': init_weight(keys[2], (dim, vocab_size))
     }
-    block_keys = jax.random.split(keys[3], n_layers)
-    params['blocks'] = [init_transformer_block(k, dim, n_heads, n_kv_heads) for k in block_keys]
+    block_keys = jax.random.split(keys[3], num_layers)
+    params['blocks'] = [init_transformer_block(k, dim, num_heads, num_kv_heads) for k in block_keys]
     return params
 
-def attention(params, x, mask, freqs_cis, n_heads, n_kv_heads, cache=None, position=0):
-    B, T, C = x.shape
-    head_dim = C // n_heads
-    q = jnp.dot(x, params['wq']).reshape(B, T, n_heads, head_dim)
-    k = jnp.dot(x, params['wk']).reshape(B, T, n_kv_heads, head_dim)
-    v = jnp.dot(x, params['wv']).reshape(B, T, n_kv_heads, head_dim)
+def attention(params, x, mask, freqs_cis, config, cache=None, position=0):
+    B, T, input_embedding_dim = x.shape
+    if input_embedding_dim != config.dim:
+      raise ValueError(
+          ("Input shape is batch size: %i token len: %i input embedding dim: %i,"
+           " but expected input embedding dim to be: %i") % (B, T, input_embedding_dim, config.dim))
+    head_dim = config.dim // config.num_heads
+    q = jnp.dot(x, params['wq']).reshape(B, T, config.num_heads, head_dim)
+    k = jnp.dot(x, params['wk']).reshape(B, T, config.num_kv_heads, head_dim)
+    v = jnp.dot(x, params['wv']).reshape(B, T, config.num_kv_heads, head_dim)
     q, k = apply_rotary_emb(q, k, freqs_cis[position:position + T])
     if cache is not None:
         k = jnp.concatenate([cache[0], k], axis=1)
         v = jnp.concatenate([cache[1], v], axis=1)
     new_cache = (k, v)
-    k = repeat_kv(k, n_heads // n_kv_heads)
-    v = repeat_kv(v, n_heads // n_kv_heads)
+    k = repeat_kv(k, config.num_heads // config.num_kv_heads)
+    v = repeat_kv(v, config.num_heads // config.num_kv_heads)
     q, k, v = map(lambda x: x.transpose(0, 2, 1, 3), (q, k, v))
     scores = jnp.matmul(q, k.transpose(0, 1, 3, 2)) / math.sqrt(head_dim)
     if mask is not None:
@@ -145,8 +160,7 @@ def transformer_block(params, x, mask, freqs_cis, config,
         assert False, "key must be provided when training with drop out"
     x = rms_norm(x, params['attention_norm'])
     attn_output, new_cache = attention(params['attention'], x, mask, freqs_cis,
-                                       config.n_heads, config.n_kv_heads,
-                                       cache, position)
+                                       config, cache, position)
     if training:
         dropout_key, key = jax.random.split(key)
         attn_output = (
@@ -179,8 +193,8 @@ def get_mask(context_len, dtype, mask_val=-1e-9):
 def model_forward(params, inputs, config, key=None, training=False, cache=None, position=0):
     # B, T = inputs.shape
     h = params['token_embedding'][inputs]
-    freqs_cis = precompute_freqs_cis(config.dim // config.n_heads, config.max_seq_len)
-    mask = get_mask(config.max_seq_len, h.dtype)
+    freqs_cis = precompute_freqs_cis(config.dim // config.num_heads, config.context_len)
+    mask = get_mask(config.context_len, h.dtype)
     new_caches = []
     for i, block in enumerate(params['blocks']):
         layer_cache = cache[i] if cache is not None else None

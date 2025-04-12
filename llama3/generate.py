@@ -17,7 +17,7 @@ def generate(params, prompt_tokens, max_new_tokens, config):
   ttft_ts = None
   x = jnp.array(prompt_tokens)
   for i in range(max_new_tokens):
-      x_crop = x[-config.max_seq_len:]
+      x_crop = x[-config.context_len:]
       logits, _ = model.model_forward(params, x_crop[None, :], config)
       logits = logits[0, -1, :]  # take the last logit
       next_token = random.categorical(random.PRNGKey(0), logits, shape=(1,))[0]
@@ -41,7 +41,7 @@ def main():
 
   print("Generating output...")
   enc = tiktoken.get_encoding("gpt2")
-  config = model.ModelConfig()
+  config = model.model_config
   output = generate(checkpoint.params, jnp.array(enc.encode(args.prompt)), 20, config)
 
   print(enc.decode(output))

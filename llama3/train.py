@@ -66,7 +66,7 @@ def train(data, config, checkpoint, num_epochs=30, steps_per_epoch=100):
         for step in range(steps_per_epoch):
           key, batch_key, dropout_key = random.split(key, 3)
           # Get batch
-          batch = get_batch(batch_key, data, config.batch_size, config.max_seq_len)
+          batch = get_batch(batch_key, data, config.batch_size, config.context_len)
           # Update model
           params_state, loss = update_step(params_state, batch, config, dropout_key)
           epoch_loss += loss
@@ -97,9 +97,9 @@ def get_params(checkpoint: str, config):
           key=key,
           vocab_size=config.vocab_size,
           dim=config.dim,
-          n_layers=config.n_layers,
-          n_heads=config.n_heads,
-          n_kv_heads=config.n_kv_heads
+          num_layers=config.num_layers,
+          num_heads=config.num_heads,
+          num_kv_heads=config.num_kv_heads
         ))
     print("Restarting from %s" % checkpoint)
     return serialize.load_params(checkpoint)
@@ -122,7 +122,7 @@ def main():
   tokens = enc.encode(text)
   data = jnp.array(tokens)
 
-  config = model.ModelConfig()
+  config = model.model_config
 
   # Initialize model
   key = random.PRNGKey(0)

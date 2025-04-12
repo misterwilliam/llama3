@@ -47,26 +47,26 @@ class TestRope(unittest.TestCase):
 class TestAttention(unittest.TestCase):
 
   def test_attention(self):
-    model_dims = 4
-    num_heads = 1
-    num_kv_heads = 1
-    batch_size = 1
-    context_len = 4
+    config = llama3.model.ModelConfig(dim=4,
+                                      num_heads=1,
+                                      num_kv_heads=1,
+                                      batch_size=1,
+                                      context_len=4)
 
     params = {
-      "wq": jnp.identity(model_dims, dtype=jnp.float32),
-      "wk": jnp.identity(model_dims, dtype=jnp.float32),
-      "wv": jnp.identity(model_dims, dtype=jnp.float32),
-      "wo": jnp.identity(model_dims, dtype=jnp.float32),
+      "wq": jnp.identity(config.dim, dtype=jnp.float32),
+      "wk": jnp.identity(config.dim, dtype=jnp.float32),
+      "wv": jnp.identity(config.dim, dtype=jnp.float32),
+      "wo": jnp.identity(config.dim, dtype=jnp.float32),
     }
-    rotary_embedding = llama3.model.precompute_freqs_cis(model_dims // num_heads,
-                                                         context_len)
-    x = (jnp.arange(batch_size * model_dims * context_len, dtype=jnp.float32)
-            .reshape(batch_size, context_len, model_dims))
+    rotary_embedding = llama3.model.precompute_freqs_cis(config.dim // config.num_heads,
+                                                         config.context_len)
+    x = (jnp.arange(config.batch_size * config.dim * config.context_len, dtype=jnp.float32)
+            .reshape(config.batch_size, config.context_len, config.dim))
 
     output, _ = llama3.model.attention(params, x, None, rotary_embedding,
-                                       num_heads, num_kv_heads)
-    self.assertEqual(output.shape, (batch_size, context_len, model_dims))
+                                       config)
+    self.assertEqual(output.shape, (config.batch_size, config.context_len, config.dim))
 
 
 class TestFeedForward(unittest.TestCase):
