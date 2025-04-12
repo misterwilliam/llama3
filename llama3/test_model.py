@@ -36,6 +36,8 @@ class TestRmsNorm(unittest.TestCase):
 class TestRope(unittest.TestCase):
 
   def test_precompute(self):
+    # Verify that RoPE embedding dimensions are correct. Assume the values are
+    # correct.
     token_embedding_dim = 4
     context_len = 3
     rotary_embedding = llama3.model.precompute_freqs_cis(token_embedding_dim, context_len)
