@@ -138,14 +138,14 @@ def feed_forward(params, x):
       jax.nn.silu(jnp.dot(x, params["gate"])),
     params["down"])
 
-def transformer_block(params, x, mask, freqs_cis, n_heads, n_kv_heads,
+def transformer_block(params, x, mask, freqs_cis, config,
                       cache=None, position=0, training=False, dropout_rate=0.0,
                       key=None):
     if training and key is None and dropout_rate > 0:
         assert False, "key must be provided when training with drop out"
     x = rms_norm(x, params['attention_norm'])
-    attn_output, new_cache = attention(params['attention'],
-                                       x, mask, freqs_cis, n_heads, n_kv_heads,
+    attn_output, new_cache = attention(params['attention'], x, mask, freqs_cis,
+                                       config.n_heads, config.n_kv_heads,
                                        cache, position)
     if training:
         dropout_key, key = jax.random.split(key)
@@ -184,8 +184,8 @@ def model_forward(params, inputs, config, key=None, training=False, cache=None, 
     new_caches = []
     for i, block in enumerate(params['blocks']):
         layer_cache = cache[i] if cache is not None else None
-        h, layer_cache = transformer_block(block, h, mask, freqs_cis, config.n_heads,
-                                           config.n_kv_heads, layer_cache, position,
+        h, layer_cache = transformer_block(block, h, mask, freqs_cis, config,
+                                           layer_cache, position,
                                            training=training, dropout_rate=config.dropout_rate,
                                            key=key)
         new_caches.append(layer_cache)
