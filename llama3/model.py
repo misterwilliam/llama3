@@ -138,12 +138,20 @@ def transformer_block(params, x, mask, freqs_cis, n_heads, n_kv_heads,
                                        cache, position)
     if training:
         dropout_key, key = jax.random.split(key)
-        attn_output = jax.random.bernoulli(dropout_key, 1-dropout_rate, shape=attn_output.shape) * attn_output / (1-dropout_rate)
+        attn_output = (
+            jax.random.bernoulli(dropout_key,
+                                 1-dropout_rate,
+                                 shape=attn_output.shape) * attn_output / (1-dropout_rate)
+        )
     h = x + attn_output
     ffn_output = feed_forward(params['ffn'], rms_norm(h, params['ffn_norm']))
     if training:
         dropout_key, key = jax.random.split(key)
-        ffn_output = jax.random.bernoulli(dropout_key, 1-dropout_rate, shape=ffn_output.shape) * ffn_output / (1-dropout_rate)
+        ffn_output = (
+            jax.random.bernoulli(dropout_key,
+                                 1-dropout_rate,
+                                 shape=ffn_output.shape) * ffn_output / (1-dropout_rate)
+        )
     out = h + ffn_output
     return out, new_cache
 
