@@ -19,7 +19,7 @@ class ModelConfig:
   dropout_rate = 0.0
 
 
-def rms_norm(x, weight, eps=1e-5):
+def rms_norm(x: jnp.array, weight: jnp.array, eps=1e-5):
     """Normalize x by its root mean square and weight by weight.
 
     Input can be a single token's embedding, list of token embeddings, or a
@@ -28,9 +28,20 @@ def rms_norm(x, weight, eps=1e-5):
     rms = jnp.sqrt(jnp.mean(jnp.square(x), axis=-1, keepdims=True) + eps)
     return x * weight * jnp.reciprocal(rms)
 
-def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
-    freqs = 1.0 / (theta ** (jnp.arange(0, dim // 2, dtype=jnp.float32) / dim))
-    t = jnp.arange(end, dtype=jnp.float32)
+def precompute_freqs_cis(token_embedding_dim: int, context_len: int, theta: float = 10000.0):
+    """Return RoPE embedding
+
+    A RoPE embedding is a matrix of shape: (context_len, dim // 2). It
+    represents a list of context_len vectors that specify a rotation for each
+    token position. It treats each token embedding as a list of pairs, and
+    rotates each pair. For example if a token embedding is [a, b, c, d], RoPE
+    imagines the embedding is [(a, b), (c, d)], and provides a rotation for each
+    pair. Therefore the RoPE embedding dimension is dim // 2.
+    """
+    freqs = 1.0 / (
+        theta ** (jnp.arange(token_embedding_dim // 2, dtype=jnp.float32) / token_embedding_dim)
+      )
+    t = jnp.arange(context_len, dtype=jnp.float32)
     freqs = jnp.outer(t, freqs)
     return jnp.complex64(jnp.exp(1j * freqs))
 

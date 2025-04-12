@@ -33,6 +33,40 @@ class TestRmsNorm(unittest.TestCase):
     self.assertTrue(jnp.allclose(output, x * weight / root_mean_square))
 
 
+class TestRope(unittest.TestCase):
+
+  def test_precompute(self):
+    token_embedding_dim = 4
+    context_len = 3
+    rotary_embedding = llama3.model.precompute_freqs_cis(token_embedding_dim, context_len)
+    self.assertEqual(rotary_embedding.shape, (context_len, token_embedding_dim // 2))
+
+
+class TestAttention(unittest.TestCase):
+
+  def test_attention(self):
+    model_dims = 4
+    num_heads = 1
+    num_kv_heads = 1
+    batch_size = 1
+    context_len = 4
+
+    params = {
+      "wq": jnp.identity(model_dims, dtype=jnp.float32),
+      "wk": jnp.identity(model_dims, dtype=jnp.float32),
+      "wv": jnp.identity(model_dims, dtype=jnp.float32),
+      "wo": jnp.identity(model_dims, dtype=jnp.float32),
+    }
+    rotary_embedding = llama3.model.precompute_freqs_cis(model_dims // num_heads,
+                                                         context_len)
+    x = (jnp.arange(batch_size * model_dims * context_len, dtype=jnp.float32)
+            .reshape(batch_size, context_len, model_dims))
+
+    output, _ = llama3.model.attention(params, x, None, rotary_embedding,
+                                       num_heads, num_kv_heads)
+    self.assertEqual(output.shape, (batch_size, context_len, model_dims))
+
+
 class TestFeedForward(unittest.TestCase):
 
   def test_feedforward(self):
