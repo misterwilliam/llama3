@@ -49,6 +49,9 @@ def precompute_freqs_cis(token_embedding_dim: int, context_len: int, theta: floa
     imagines the embedding is [(a, b), (c, d)], and provides a rotation for each
     pair. Therefore the RoPE embedding dimension is dim // 2.
     """
+    if token_embedding_dim % 2 != 0:
+      raise ValueError(
+          "Got token embedding dimension %i. The dimension must be even." % token_embedding_dim)
     freqs = 1.0 / (
         theta ** (jnp.arange(token_embedding_dim // 2, dtype=jnp.float32) / token_embedding_dim)
       )
