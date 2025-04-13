@@ -1,5 +1,7 @@
+import math
 import unittest
 
+import jax
 import jax.numpy as jnp
 
 import llama3.model
@@ -57,7 +59,7 @@ class TestRope(unittest.TestCase):
     self.assertEqual(xk.shape, (1, context_len, num_heads, model_dim))
 
   def test_apply_identity_rope(self):
-    # Verify if we use a RoPE embedding of matrix of 1+1j for all values. We
+    # Verify if we use a RoPE embedding of matrix of 1 for all values. We
     # have a noop embedding.
     model_dim = 4
     context_len = 3
@@ -95,6 +97,31 @@ class TestAttention(unittest.TestCase):
     output, _ = llama3.model.attention(params, x, None, rotary_embedding,
                                        config)
     self.assertEqual(output.shape, (config.batch_size, config.context_len, config.dim))
+
+  def test_identity_attention(self):
+     # Verify a scenario close to an identity attention.
+    config = llama3.model.ModelConfig(dim=4,
+                                      num_heads=1,
+                                      num_kv_heads=1,
+                                      batch_size=1,
+                                      context_len=4)
+    # Make input just a one hot matrix for each token.
+    x = jnp.identity(config.context_len, dtype=jnp.float32).reshape(1, config.context_len, config.dim)
+    # Make attention matrix
+    params = {
+      "wq": jnp.identity(config.dim, dtype=jnp.float32),
+      "wk": jnp.identity(config.dim, dtype=jnp.float32),
+      "wv": jnp.identity(config.dim, dtype=jnp.float32),
+      "wo": jnp.identity(config.dim, dtype=jnp.float32),
+    }
+    # Make rotary embedding one that does no rotation.
+    rotary_embedding = jnp.ones((config.context_len, config.dim // 2))
+
+    output, _ = llama3.model.attention(params, x, None, rotary_embedding,
+                                       config)
+    # Verify that output is scaled softmax of one hot matrix.
+    x_softmax = jax.nn.softmax(x / math.sqrt(config.dim))
+    self.assertTrue(jnp.array_equal(output, x_softmax), "Got: %s Want: %s" % (output, x_softmax))
 
 
 class TestFeedForward(unittest.TestCase):

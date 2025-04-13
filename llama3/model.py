@@ -151,12 +151,17 @@ def attention(params, x, mask, freqs_cis, config, cache=None, position=0):
     new_cache = (k, v)
     k = repeat_kv(k, config.num_heads // config.num_kv_heads)
     v = repeat_kv(v, config.num_heads // config.num_kv_heads)
+    # Swap tokens and heads. Order is now B, Heads, Tokens, embedding dims.
     q, k, v = map(lambda x: x.transpose(0, 2, 1, 3), (q, k, v))
+    # For keys swap tokens, and embedding dims. Order is now B, Heads, embedding
+    # dims, and tokens. This is done to transpose the key matrix as appropriate
+    # for the matmul.
     scores = jnp.matmul(q, k.transpose(0, 1, 3, 2)) / math.sqrt(head_dim)
     if mask is not None:
         scores = scores + mask[:, :, :T, :T]
     scores = jax.nn.softmax(scores, axis=-1)
     output = jnp.matmul(scores, v)
+    # Transpose tokens and heads back to where they were.
     output = output.transpose(0, 2, 1, 3).reshape(B, T, -1)
     return jnp.dot(output, params['wo']), new_cache
 
