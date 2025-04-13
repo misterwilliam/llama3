@@ -62,7 +62,7 @@ def precompute_freqs_cis(token_embedding_dim: int, context_len: int, theta: floa
 def apply_rotary_emb(xq, xk, freqs_cis):
     # Shape is batch, context len, num heads, and embedding dimensionts
     qB, qT, _nQHead, qDims = xq.shape
-    kB, kT, _nKHead, kDims = xq.shape
+    kB, kT, _nKHead, kDims = xk.shape
     # Shape context len, and rope embedding dimensions
     rT, rDims = freqs_cis.shape
     if qB != kB:

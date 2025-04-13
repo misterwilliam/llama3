@@ -59,8 +59,11 @@ class TestRope(unittest.TestCase):
     self.assertEqual(xk.shape, (1, context_len, num_heads, model_dim))
 
   def test_apply_identity_rope(self):
-    # Verify if we use a RoPE embedding of matrix of 1 for all values. We
-    # have a noop embedding.
+    # Verify RoPE embedding matrix filled with 1+0j, the apply_rotary_emb
+    # function performs no transformation on the inputs. Since complex numbers
+    # with magnitude 1 and phase 0 (i.e., 1+0j) represent identity rotations in
+    # the complex plane, we expect the output query and key. Tests correctness
+    # of the embedding application logic without actual rotation.
     model_dim = 4
     context_len = 3
     num_heads = 2
@@ -70,6 +73,7 @@ class TestRope(unittest.TestCase):
     )
     qAfter, kAfter, = llama3.model.apply_rotary_emb(qBefore, kBefore,
                                                     jnp.ones((context_len, model_dim // 2)))
+    # Verify embedding applies no rotation.
     self.assertTrue(jnp.array_equal(qBefore, qAfter))
     self.assertTrue(jnp.array_equal(kBefore, kAfter))
 
