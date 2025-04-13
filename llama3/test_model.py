@@ -81,6 +81,8 @@ class TestRope(unittest.TestCase):
 class TestAttention(unittest.TestCase):
 
   def test_attention(self):
+    # Verify that attention returns accepts inputs and outputs tensors of
+    # expected dimentions.
     config = llama3.model.ModelConfig(dim=4,
                                       num_heads=1,
                                       num_kv_heads=1,
@@ -103,7 +105,12 @@ class TestAttention(unittest.TestCase):
     self.assertEqual(output.shape, (config.batch_size, config.context_len, config.dim))
 
   def test_identity_attention(self):
-     # Verify a scenario close to an identity attention.
+     # Verify a scenario close to an identity attention. The attention block
+     # computes the attention and then applies scaling followed by a soft max.
+     # This test case exercises the scenario where the quey, key, and value
+     # matrics are identity matrix and shows that the outputted attention scores
+     # are the one hot vectors scaled and softmaxed when the input is one hot
+     # vectors.
     config = llama3.model.ModelConfig(dim=4,
                                       num_heads=1,
                                       num_kv_heads=1,
@@ -120,7 +127,6 @@ class TestAttention(unittest.TestCase):
     }
     # Make rotary embedding one that does no rotation.
     rotary_embedding = jnp.ones((config.context_len, config.dim // 2))
-
     output, _ = llama3.model.attention(params, x, None, rotary_embedding,
                                        config)
     # Verify that output is scaled softmax of one hot matrix.
