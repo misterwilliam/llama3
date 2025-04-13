@@ -43,6 +43,34 @@ class TestRope(unittest.TestCase):
     rotary_embedding = llama3.model.precompute_freqs_cis(token_embedding_dim, context_len)
     self.assertEqual(rotary_embedding.shape, (context_len, token_embedding_dim // 2))
 
+  def test_apply_rope(self):
+    model_dim = 4
+    num_heads = 2
+    context_len = 3
+    rotary_embedding = llama3.model.precompute_freqs_cis(model_dim, context_len)
+    xq, xk = (
+      jnp.arange(context_len * num_heads * model_dim).reshape(1, context_len, num_heads, model_dim),
+      jnp.arange(context_len * num_heads * model_dim).reshape(1, context_len, num_heads, model_dim),
+    )
+    xq, xk = llama3.model.apply_rotary_emb(xq, xk, rotary_embedding)
+    self.assertEqual(xq.shape, (1, context_len, num_heads, model_dim))
+    self.assertEqual(xk.shape, (1, context_len, num_heads, model_dim))
+
+  def test_apply_identity_rope(self):
+    # Verify if we use a RoPE embedding of matrix of 1+1j for all values. We
+    # have a noop embedding.
+    model_dim = 4
+    context_len = 3
+    num_heads = 2
+    qBefore, kBefore = (
+      jnp.arange(context_len * num_heads * model_dim).reshape(1, context_len, num_heads, model_dim),
+      jnp.arange(context_len * num_heads * model_dim).reshape(1, context_len, num_heads, model_dim),
+    )
+    qAfter, kAfter, = llama3.model.apply_rotary_emb(qBefore, kBefore,
+                                                    jnp.ones((context_len, model_dim // 2)))
+    self.assertTrue(jnp.array_equal(qBefore, qAfter))
+    self.assertTrue(jnp.array_equal(kBefore, kAfter))
+
 
 class TestAttention(unittest.TestCase):
 

@@ -60,10 +60,31 @@ def precompute_freqs_cis(token_embedding_dim: int, context_len: int, theta: floa
     return jnp.complex64(jnp.exp(1j * freqs))
 
 def apply_rotary_emb(xq, xk, freqs_cis):
+    # Shape is batch, context len, num heads, and embedding dimensionts
+    qB, qT, _nQHead, qDims = xq.shape
+    kB, kT, _nKHead, kDims = xq.shape
+    # Shape context len, and rope embedding dimensions
+    rT, rDims = freqs_cis.shape
+    if qB != kB:
+      raise ValueError("Batch size of query and key mismatch. Batch query=%d key=%d" % (qB, kB))
+    if qT != rT or kT != rT:
+      raise ValueError(
+         "Context length mismatch. Context length rope=%d query=%d key=%d" % (rT, qT, kT))
+    if qDims // 2 != rDims or kDims // 2 != rDims:
+      raise ValueError(
+         ("Head dimensions mismatch. Rope dimensions must be half query and key dimensions. "
+          "Rope=%d query=%d key=%d") % (rDims, qDims, kDims))
+    # Convert xq, and xr into a sequence of pairs.
+    # *xq.shape[:-1] means take all but last dimension of the shape and convert
+    # it into positional arguments.
     xq_r, xk_r = jnp.reshape(xq, (*xq.shape[:-1], -1, 2)), jnp.reshape(xk, (*xk.shape[:-1], -1, 2))
+    # Convert each pair into a complex number.
+    # [..., 0] means extract the first element in the last dimenstion of all the pairs.
+    # [..., 1] means extract the 2nd element in the last dimenstion of all the pairs.
     xq_complex = jnp.complex64(xq_r[..., 0] + 1j * xq_r[..., 1])
     xk_complex = jnp.complex64(xk_r[..., 0] + 1j * xk_r[..., 1])
-    freqs_cis = jnp.reshape(freqs_cis, (1, freqs_cis.shape[0], 1, freqs_cis.shape[1]))
+    context_len, rope_dim = freqs_cis.shape
+    freqs_cis = jnp.reshape(freqs_cis, (1, context_len, 1, rope_dim))
     xq_out = xq_complex * freqs_cis
     xk_out = xk_complex * freqs_cis
     xq = jnp.stack([jnp.real(xq_out), jnp.imag(xq_out)], axis=-1).reshape(xq.shape)
