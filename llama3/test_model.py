@@ -127,6 +127,7 @@ class TestAttention(unittest.TestCase):
     }
     # Make rotary embedding one that does no rotation.
     rotary_embedding = jnp.ones((config.context_len, config.dim // 2))
+
     output, _ = llama3.model.attention(params, x, None, rotary_embedding,
                                        config)
     # Verify that output is scaled softmax of one hot matrix.
@@ -177,6 +178,21 @@ class TestGetMask(unittest.TestCase):
                           [0,  0,  0,  0],
                         ])))
 
+
+class TestInitWights(unittest.TestCase):
+
+  def test_init_attention_weights(self):
+    key = jax.random.PRNGKey(0)
+    model_dim = 8
+    num_heads = 4
+    num_kv_heads = 2
+    params = llama3.model.init_attention_weights(key, model_dim, num_heads,
+                                                 num_kv_heads)
+    self.assertEqual(params["wq"].shape, (model_dim, model_dim))
+    # 4 is (model_dim / num_heads) * num_kv_heads
+    self.assertEqual(params["wk"].shape, (model_dim, 4))
+    self.assertEqual(params["wv"].shape, (model_dim, 4))
+    self.assertEqual(params["wo"].shape, (model_dim, model_dim))
 
 if __name__ == '__main__':
     unittest.main()

@@ -99,7 +99,13 @@ def init_weight(key, shape, scale=None):
     return jax.random.normal(key, shape) * scale
 
 def init_attention_weights(key, dim, num_heads, num_kv_heads):
+    if dim % num_heads != 0:
+       raise ValueError(
+          f"Num heads ({num_heads}) must be multiple of model dimensions ({dim})")
     keys = jax.random.split(key, 4)
+    # Heads are not fully independent. The heads share a single projection
+    # vector. So weights from all the heads impacts the combined projection.
+    # This is done for computational efficiency.
     head_dim = dim // num_heads
     return {
         'wq': init_weight(keys[0], (dim, num_heads * head_dim)),
