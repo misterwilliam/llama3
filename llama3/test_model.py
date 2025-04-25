@@ -104,6 +104,30 @@ class TestAttention(unittest.TestCase):
                                        config)
     self.assertEqual(output.shape, (config.batch_size, config.context_len, config.dim))
 
+  def test_attention_batched(self):
+    # Verify that attention returns accepts inputs and outputs tensors of
+    # expected dimentions.
+    config = llama3.model.ModelConfig(dim=8,
+                                      num_heads=4,
+                                      num_kv_heads=4,
+                                      batch_size=2,
+                                      context_len=2)
+
+    params = {
+      "wq": jnp.identity(config.dim, dtype=jnp.float32),
+      "wk": jnp.identity(config.dim, dtype=jnp.float32),
+      "wv": jnp.identity(config.dim, dtype=jnp.float32),
+      "wo": jnp.identity(config.dim, dtype=jnp.float32),
+    }
+    rotary_embedding = llama3.model.precompute_freqs_cis(config.dim // config.num_heads,
+                                                         config.context_len)
+    x = (jnp.arange(config.batch_size * config.dim * config.context_len, dtype=jnp.float32)
+            .reshape(config.batch_size, config.context_len, config.dim))
+
+    output, _ = llama3.model.attention(params, x, None, rotary_embedding,
+                                       config)
+    self.assertEqual(output.shape, (config.batch_size, config.context_len, config.dim))
+
   def test_identity_attention(self):
      # Verify a scenario close to an identity attention. The attention block
      # computes the attention and then applies scaling followed by a soft max.
