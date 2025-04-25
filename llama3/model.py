@@ -147,9 +147,9 @@ def attention(params, x, mask, freqs_cis, config, cache=None, position=0):
           ("Input shape is batch size: %i token len: %i input embedding dim: %i,"
            " but expected input embedding dim to be: %i") % (B, T, input_embedding_dim, config.dim))
     head_dim = config.dim // config.num_heads
-    q = jnp.dot(x, params['wq']).reshape(B, T, config.num_heads, head_dim)
-    k = jnp.dot(x, params['wk']).reshape(B, T, config.num_kv_heads, head_dim)
-    v = jnp.dot(x, params['wv']).reshape(B, T, config.num_kv_heads, head_dim)
+    q = jnp.matmul(x, params['wq']).reshape(B, T, config.num_heads, head_dim)
+    k = jnp.matmul(x, params['wk']).reshape(B, T, config.num_kv_heads, head_dim)
+    v = jnp.matmul(x, params['wv']).reshape(B, T, config.num_kv_heads, head_dim)
     q, k = apply_rotary_emb(q, k, freqs_cis[position:position + T])
     if cache is not None:
         k = jnp.concatenate([cache[0], k], axis=1)
